@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import mythRoutes from "./routes/mythRoutes.js";
 import openaiRoutes from "./routes/openaiRoutes.js";
+import sequelize from "./db.js"; // ✅ <---- Add this line
 
 dotenv.config();
 
@@ -24,15 +25,25 @@ app.use("/images", express.static(path.join(__dirname, "public/images")));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/myths", mythRoutes);
+app.use("/api/openai", openaiRoutes);
 
 // Home
 app.get("/", (req, res) => {
   res.send("MythForge Backend Running");
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`MythForge backend running on http://localhost:${PORT}`);
-});
-
-app.use("/api/openai", openaiRoutes);
+// ✅ Connect to Database before starting server
+(async () => {
+  try {
+    await sequelize.authenticate();
+    console.log("✅ Connected to PostgreSQL successfully.");
+    await sequelize.sync({ alter: true }); // sync models (optional)
+    console.log("✅ Models synchronized with database.");
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 MythForge backend running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+  }
+})();

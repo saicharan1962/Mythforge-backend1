@@ -1,21 +1,12 @@
-// testDB.js
-import { pool } from './db.js';
+import sequelize from "./db.js";
 
-async function testConnection() {
+(async () => {
   try {
-    const client = await pool.connect();
-    console.log('PostgreSQL CONNECTED SUCCESSFULLY!');
-    const res = await client.query('SELECT NOW()');
-    console.log('Time from DB:', res.rows[0].now);
-    client.release();
-  } catch (err) {
-    console.error('DB CONNECTION FAILED:');
-    console.error('Error Code:', err.code);
-    console.error('Error Message:', err.message);
-    console.error('Hint:', err.hint || 'No hint');
+    await sequelize.authenticate();
+    console.log("✅ Connection to PostgreSQL verified successfully!");
+  } catch (error) {
+    console.error("❌ Unable to connect:", error);
   } finally {
-    await pool.end();
+    await sequelize.close();
   }
-}
-
-testConnection();
+})();
