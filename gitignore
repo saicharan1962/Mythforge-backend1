@@ -2,9 +2,17 @@
 #  MythForge Backend .gitignore
 # ============================
 
-# Environment variables
+# Environment files
 .env
+.env.local
+.env.development
+.env.production
+*.env.
 
+# Environment folder (if you have one)
+env/
+venv/
+.venv/
 # Node dependencies
 node_modules/
 
