@@ -1,31 +1,71 @@
+// routes/authRoutes.js
 import express from "express";
-import { registerUser, loginUser } from "../controllers/authController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import {
+  registerUser,
+  loginUser,
+  verifyEmail
+} from "../controllers/authController.js";
+
+import {
+  verifyToken,
+  requireRole
+} from "../middleware/authMiddleware.js";
+
 import { pool } from "../db.js";
 
 const router = express.Router();
 
-// Register and login routes
+/* ======================================================
+   REGISTER & LOGIN
+   ====================================================== */
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 
-// ✅ Authenticated route: Get current user info
+/* ======================================================
+   EMAIL VERIFICATION
+   ====================================================== */
+router.get("/verify/:token", verifyEmail);
+
+/* ======================================================
+   GET CURRENT LOGGED-IN USER (PROTECTED)
+   ====================================================== */
 router.get("/me", verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT user_id, username, email, role FROM users WHERE user_id = $1",
+      "SELECT user_id, username, email, role, is_verified FROM users WHERE user_id = $1",
       [req.user.user_id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.rows.length === 0)
       return res.status(404).json({ message: "User not found" });
-    }
 
     res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error("Error fetching user:", err);
+    console.error("❌ Error fetching user:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
+/* ======================================================
+   ADMIN: GET ALL USERS
+   Protected: Only admin or superadmin can access
+   ====================================================== */
+router.get(
+  "/all-users",
+  verifyToken,
+  requireRole("admin"), // admin OR superadmin
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT user_id, username, email, role, is_verified FROM users ORDER BY user_id ASC"
+      );
+
+      res.json({ users: result.rows });
+    } catch (err) {
+      console.error("❌ Admin fetch users error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 export default router;

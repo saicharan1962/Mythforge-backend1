@@ -4,6 +4,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// Routes
 import authRoutes from "./routes/authRoutes.js";
 import mythRoutes from "./routes/mythRoutes.js";
 import openaiRoutes from "./routes/openaiRoutes.js";
@@ -24,15 +26,14 @@ app.use("/images", express.static(path.join(__dirname, "public/images")));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/myths", mythRoutes);
+app.use("/api/openai", openaiRoutes);
 
-// Home
+// Home route
 app.get("/", (req, res) => {
-  res.send("MythForge Backend Running");
+  res.send("✅ MythForge Backend Running Successfully");
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`MythForge backend running on http://localhost:${PORT}`);
+  console.log(`🚀 MythForge backend running on http://localhost:${PORT}`);
 });
-
-app.use("/api/openai", openaiRoutes);

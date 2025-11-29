@@ -1,3 +1,5 @@
+// routes/openaiRoutes.js
+
 import express from "express";
 import dotenv from "dotenv";
 import OpenAI from "openai";
