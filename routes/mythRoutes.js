@@ -1,7 +1,8 @@
 // routes/mythRoutes.js
 import express from "express";
-import { createMyth, getMyths } from "../controllers/mythController.js";
 import { verifyToken, requireRole, authenticate } from "../middleware/authMiddleware.js";
+import { createMyth, getMyths, getMythById } from "../controllers/mythController.js";
+
 
 const router = express.Router();
 
@@ -28,4 +29,6 @@ router.get("/admin-only", verifyToken, requireRole("admin"), (req, res) => {
 });
 
 // ==============================================
+
+router.get("/:id", authenticate, getMythById);
 export default router;

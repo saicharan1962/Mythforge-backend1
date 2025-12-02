@@ -1,7 +1,9 @@
 // server.js
+import dotenv from "dotenv";
+dotenv.config();   // ✅ Load env FIRST
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -9,8 +11,6 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import mythRoutes from "./routes/mythRoutes.js";
 import openaiRoutes from "./routes/openaiRoutes.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
