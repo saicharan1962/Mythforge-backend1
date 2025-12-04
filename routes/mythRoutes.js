@@ -14,4 +14,20 @@ router.get("/", authenticate, getMyths);
 // Retrieve single myth
 router.get("/:id", authenticate, getMythById);
 
+// Retrieve all myths for a specific user (history page)
+router.get("/user/:userId", authenticate, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { Myth } = require("../models/Myth"); // adjust path if needed
+    const myths = await Myth.find({ user: userId }).sort({ created_at: -1 });
+    res.json({ myths });
+  } catch (err) {
+    console.error("Error retrieving user's myths:", err);
+    res.status(500).json({ error: "Failed to fetch user's myths" });
+  }
+});
+router.get("/", authenticate, (req,res,next)=>{
+  console.log("✅ /api/myths hit, user:", req.user);
+  next();
+}, getMyths);
 export default router;
