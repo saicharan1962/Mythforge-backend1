@@ -6,9 +6,9 @@ dotenv.config();
 
 /* ---------------------- FIXED GREEK GOD LIST ---------------------- */
 const ALLOWED_GODS = [
-  "Aphrodite", "Apollo", "Ares", "Artemis", "Atalanta", "Athena", "Demeter",
-  "Hades", "Hecate", "Hephaestus", "Hera", "Hercules", "Hermes", "Odysseus",
-  "Orpheus", "Persephone", "Perseus", "Psyche", "The Fates", "Zeus"
+  "Aphrodite","Apollo","Ares","Artemis","Atalanta","Athena","Demeter",
+  "Hades","Hecate","Hephaestus","Hera","Hercules","Hermes","Odysseus",
+  "Orpheus","Persephone","Perseus","Psyche","The Fates","Zeus"
 ];
 
 /* ---------------------- MYTHFORGE ORACLE PROMPT ---------------------- */
@@ -17,7 +17,7 @@ You are the MythForge Oracle.
 
 When the user provides a life event, your tasks are:
 
-1. Choose one Greek god/goddess from this EXACT list:
+1. Match one Greek god/goddess from this EXACT list based on user's life event:
 Aphrodite, Apollo, Ares, Artemis, Atalanta, Athena, Demeter, Hades, Hecate,
 Hephaestus, Hera, Hercules, Hermes, Odysseus, Orpheus, Persephone, Perseus,
 Psyche, The Fates, Zeus.
@@ -43,27 +43,45 @@ No explanations. No meta text. No links. No notes.
 Only clean output in the exact above format.
 `;
 
+/* ========================================================================= */
+/*                          CREATE MYTH FROM EVENT                           */
+/* ========================================================================= */
 export const createMyth = async (req, res) => {
-  const { event, title } = req.body;
+  const { event_id } = req.body;
   const userId = req.user.user_id;
 
-  if (!event || event.trim().length === 0) {
-    return res.status(400).json({ message: "Life event description is required" });
+  if (!event_id) {
+    return res.status(400).json({ message: "event_id is required" });
   }
 
   try {
     await pool.query("BEGIN");
 
-    const defaultTitle = title || "A Mythic Tale";
-    let finalTitle = defaultTitle;
+    /* -------------------- GET LIFE EVENT TEXT -------------------- */
+    const eventResult = await pool.query(
+      `SELECT title, description 
+       FROM LifeEvents 
+       WHERE event_id = $1 AND user_id = $2`,
+      [event_id, userId]
+    );
+
+    if (eventResult.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      return res.status(404).json({ message: "Life event not found" });
+    }
+
+    const lifeEventText = eventResult.rows[0].description;
+    const lifeEventTitle = eventResult.rows[0].title;
+
+    let finalDeity = "Zeus";
     let finalNarrative = "";
 
-    /* -------------------- OPENAI CALL -------------------- */
+    /* -------------------- OPENAI GENERATION -------------------- */
     try {
       const { OpenAI } = await import("openai");
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      const userPrompt = `Life Event: "${event}"`;
+      const userPrompt = `Life Event: "${lifeEventText}"`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -80,16 +98,14 @@ export const createMyth = async (req, res) => {
       const nameMatch = aiOutput.match(/Name of Greek\/Goddess:\s*([^"\n]+)/i);
       const narrativeMatch = aiOutput.match(/Narrative:\s*([\s\S]+)/i);
 
-      let deity = nameMatch ? nameMatch[1].trim() : defaultTitle;
+      let deity = nameMatch ? nameMatch[1].trim() : "Zeus";
       let narrative = narrativeMatch ? narrativeMatch[1].trim() : aiOutput;
 
-      // Validate deity
       if (!ALLOWED_GODS.includes(deity)) {
-        console.warn("⚠️ Invalid deity returned. Applying fallback: Zeus");
-        deity = "Zeus";
+        deity = "Zeus"; // fallback
       }
 
-      finalTitle = deity;
+      finalDeity = deity;
       finalNarrative = narrative;
 
     } catch (err) {
@@ -98,12 +114,12 @@ export const createMyth = async (req, res) => {
         "The Oracle fell silent for a moment, yet the mortal’s tale still echoed with mythic promise.";
     }
 
-    /* -------------------- SAVE TO DATABASE -------------------- */
+    /* -------------------- SAVE MYTH TO DATABASE -------------------- */
     const mythResult = await pool.query(
-      `INSERT INTO Myths (user_id, title, narrative, created_at)
-       VALUES ($1, $2, $3, NOW())
-       RETURNING myth_id, title, narrative, created_at`,
-      [userId, finalTitle, finalNarrative]
+      `INSERT INTO Myths (user_id, title, narrative, event_id, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING myth_id, title, narrative, event_id, created_at`,
+      [userId, finalDeity, finalNarrative, event_id]
     );
 
     await pool.query("COMMIT");
@@ -120,13 +136,15 @@ export const createMyth = async (req, res) => {
   }
 };
 
-/* ---------------------- GET ALL MYTHS ---------------------- */
+/* ========================================================================= */
+/*                              GET ALL MYTHS                                */
+/* ========================================================================= */
 export const getMyths = async (req, res) => {
   const userId = req.user.user_id;
 
   try {
     const result = await pool.query(
-      `SELECT myth_id, title, narrative, created_at
+      `SELECT myth_id, title, narrative, event_id, created_at
        FROM Myths
        WHERE user_id = $1
        ORDER BY created_at DESC`,
@@ -134,7 +152,6 @@ export const getMyths = async (req, res) => {
     );
 
     return res.json({
-      message: "Myths retrieved successfully",
       myths: result.rows,
     });
 
@@ -144,14 +161,16 @@ export const getMyths = async (req, res) => {
   }
 };
 
-/* ---------------------- GET MYTH BY ID ---------------------- */
+/* ========================================================================= */
+/*                             GET MYTH BY ID                                */
+/* ========================================================================= */
 export const getMythById = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.user_id;
 
   try {
     const result = await pool.query(
-      `SELECT myth_id, title, narrative, created_at
+      `SELECT myth_id, title, narrative, event_id, created_at
        FROM Myths
        WHERE myth_id = $1 AND user_id = $2`,
       [id, userId]
@@ -162,7 +181,6 @@ export const getMythById = async (req, res) => {
     }
 
     return res.json({
-      message: "Myth retrieved successfully",
       myth: result.rows[0],
     });
 

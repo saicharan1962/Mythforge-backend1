@@ -1,3 +1,5 @@
+/* ----authContoller.js---- */
+
 import { pool } from "../db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -33,7 +35,7 @@ export const registerUser = async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
-    // Insert new user
+    // Insert new user — NOTE: is_active defaults to TRUE in DB
     await pool.query(
       `INSERT INTO users (username, email, password_hash, role, is_verified, verify_token, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
@@ -95,16 +97,23 @@ export const loginUser = async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // Block login until email is verified
+    /* ---------------------- NEW INACTIVE CHECK ---------------------- */
+    if (!user.is_active) {
+      return res.status(403).json({
+        message: "Your account is inactive. Please contact the administrator.",
+      });
+    }
+
+    /* ---------------------- Email must be verified ------------------ */
     if (!user.is_verified)
       return res.status(403).json({ message: "Please verify your email before logging in." });
 
-    // Password check
+    /* ---------------------- Password check -------------------------- */
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid)
       return res.status(401).json({ message: "Invalid credentials" });
 
-    // Sign JWT token
+    /* ---------------------- JWT token ------------------------------- */
     const token = jwt.sign(
       { user_id: user.user_id, role: user.role },
       process.env.JWT_SECRET,

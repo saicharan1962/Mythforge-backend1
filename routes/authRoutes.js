@@ -67,5 +67,33 @@ router.get(
     }
   }
 );
+// ADMIN: Toggle a user's active status
+router.patch(
+  "/toggle-active/:id",
+  verifyToken,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const userId = req.params.id;
+
+      const result = await pool.query(
+        `UPDATE users 
+         SET is_active = NOT is_active 
+         WHERE user_id = $1 
+         RETURNING user_id, username, email, role, is_active`,
+        [userId]
+      );
+
+      res.json({
+        message: "User status updated",
+        user: result.rows[0],
+      });
+
+    } catch (err) {
+      console.error("❌ Toggle active error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 export default router;
