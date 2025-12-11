@@ -22,9 +22,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Backend build step (not needed)
-        run: echo "No build step required for Node.js backend"
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -33,9 +30,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Azure Login via Service Principal
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v2
         with:
           app-name: mythforgedb
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_BACKEND }}
           package: .
