@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import mythRoutes from "./routes/mythRoutes.js";
 import openaiRoutes from "./routes/openaiRoutes.js";
-import lifeEventRoutes from "./routes/lifeEventRoutes.js";  // ✅ FIXED
+import lifeEventRoutes from "./routes/lifeEventRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -19,35 +19,47 @@ const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors({ origin: "http://localhost:3000" }));
+// ----------------------------
+// ✅ CORS FIX FOR AZURE
+// ----------------------------
+app.use(
+  cors({
+    origin: [
+      "https://kind-cliff-0fa061e0f.4.azurestaticapps.net", // Azure frontend
+      "http://localhost:3000", // Local dev
+    ],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use("/images", express.static(path.join(__dirname, "public/images")));
 
-// API Routes (must be BEFORE app.listen)
+// ----------------------------
+// API Routes
+// ----------------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/myths", mythRoutes);
 app.use("/api/openai", openaiRoutes);
-app.use("/api/life-events", lifeEventRoutes);  // ✅ MOVED HERE
+app.use("/api/life-events", lifeEventRoutes);
 
-// Simple test route
+// ----------------------------
+// Test Route
+// ----------------------------
 app.get("/api/ping", (req, res) => {
   res.status(200).send("pong");
 });
 
-// Root route
+// ----------------------------
+// Root (Azure test)
+// ----------------------------
 app.get("/", (req, res) => {
-  res.send("✅ MythForge Backend Running Successfully");
+  res.send("MythForge Backend Running Successfully");
 });
 
-// Start server (must be last)
+// ----------------------------
+// Start Server
+// ----------------------------
 app.listen(PORT, () => {
-  console.log(`🚀 MythForge backend running on http://localhost:${PORT}`);
+  console.log(`🚀 Backend running on http://localhost:${PORT}`);
 });
-// test deploy
-// deploy test
-// deploy test 2
-// redeploy test
-// redeploy test again
-
-
