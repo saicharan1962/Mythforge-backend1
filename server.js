@@ -19,15 +19,16 @@ const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ----------------------------
-// ✅ CORS FIX FOR AZURE
-// ----------------------------
+// ------------------------------------
+// ✅ FIXED CORS FOR DEPLOYED FRONTEND
+// ------------------------------------
 app.use(
   cors({
     origin: [
-      "https://kind-cliff-0fa061e0f.4.azurestaticapps.net", // Azure frontend
-      "http://localhost:3000", // Local dev
+      "https://kind-cliff-0fa061e0f.2.azurestaticapps.net",  // correct Azure frontend
+      "http://localhost:3000",                               // local dev
     ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
@@ -35,31 +36,25 @@ app.use(
 app.use(express.json());
 app.use("/images", express.static(path.join(__dirname, "public/images")));
 
-// ----------------------------
-// API Routes
-// ----------------------------
+// ------------------------------------
+// API ROUTES
+// ------------------------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/myths", mythRoutes);
 app.use("/api/openai", openaiRoutes);
 app.use("/api/life-events", lifeEventRoutes);
 
-// ----------------------------
-// Test Route
-// ----------------------------
+// Test route
 app.get("/api/ping", (req, res) => {
   res.status(200).send("pong");
 });
 
-// ----------------------------
-// Root (Azure test)
-// ----------------------------
+// Root route (confirm backend is running)
 app.get("/", (req, res) => {
   res.send("MythForge Backend Running Successfully");
 });
 
-// ----------------------------
-// Start Server
-// ----------------------------
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on http://localhost:${PORT}`);
 });
