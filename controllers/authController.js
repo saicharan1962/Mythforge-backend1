@@ -1,7 +1,7 @@
-/* ----authContoller.js---- */
+/* ---- authController.js ---- */
 
 import { pool } from "../db.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -9,16 +9,20 @@ import nodemailer from "nodemailer";
 
 dotenv.config();
 
-/* ----------------------- SMTP Gmail Setup ----------------------- */
+/* ============================================================
+   SMTP Gmail Transporter
+   ============================================================ */
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.SMTP_USER,   // your @my.liu.edu email
-    pass: process.env.SMTP_PASS,   // Gmail App Password
+    user: process.env.SMTP_USER,  // Example: yourname@gmail.com
+    pass: process.env.SMTP_PASS,  // Gmail App Password
   },
 });
 
-/* -------------------------- REGISTER USER ----------------------------- */
+/* ============================================================
+   REGISTER USER
+   ============================================================ */
 export const registerUser = async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -26,30 +30,32 @@ export const registerUser = async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
 
   try {
-    // Check if email already exists
+    /* ---- Check if email exists ---- */
     const existing = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (existing.rows.length > 0)
       return res.status(400).json({ message: "Email already registered" });
 
-    // Password hashing
-    const hashed = await bcrypt.hash(password, 10);
+    /* ---- Hash password ---- */
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    /* ---- Generate email verify token ---- */
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
-    // Insert new user — NOTE: is_active defaults to TRUE in DB
+    /* ---- Insert new user ---- */
     await pool.query(
       `INSERT INTO users (username, email, password_hash, role, is_verified, verify_token, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [username, email, hashed, "user", false, verifyToken]
+       VALUES ($1, $2, $3, $4, false, $5, NOW())`,
+      [username, email, hashedPassword, "user", verifyToken]
     );
 
-    // Email verification link
+    /* ---- Build verification link ---- */
     const verifyLink = `${process.env.FRONTEND_URL}/verify/${verifyToken}`;
 
-    /* ------------------- Send Verification Email (SMTP Gmail) ------------------- */
+    /* ---- Send Email ---- */
     const mailOptions = {
       from: `MythForge <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Verify your MythForge account",
+      subject: "Verify Your MythForge Account",
       html: `
         <div style="font-family: 'Cinzel', serif; background:#0e0a1a; padding:25px; color:#fff;">
           <h2 style="color:#ffd700;">Welcome to MythForge, ${username} ⚡</h2>
@@ -73,7 +79,7 @@ export const registerUser = async (req, res) => {
     await transporter.sendMail(mailOptions);
 
     res.status(201).json({
-      message: "Registration successful! Check your email to verify your account.",
+      message: "Registration successful! Please check your email to verify your account.",
     });
 
   } catch (err) {
@@ -82,7 +88,9 @@ export const registerUser = async (req, res) => {
   }
 };
 
-/* ---------------------------- LOGIN USER ------------------------------ */
+/* ============================================================
+   LOGIN USER
+   ============================================================ */
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -90,30 +98,34 @@ export const loginUser = async (req, res) => {
     return res.status(400).json({ message: "Email and password required" });
 
   try {
-    const userRes = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
 
-    if (userRes.rows.length === 0)
+    if (result.rows.length === 0)
       return res.status(404).json({ message: "User not found" });
 
-    const user = userRes.rows[0];
+    const user = result.rows[0];
 
-    /* ---------------------- NEW INACTIVE CHECK ---------------------- */
+    /* ---- Check if user active ---- */
     if (!user.is_active) {
       return res.status(403).json({
-        message: "Your account is inactive. Please contact the administrator.",
+        message: "Your account is inactive. Contact the administrator.",
       });
     }
 
-    /* ---------------------- Email must be verified ------------------ */
-    if (!user.is_verified)
-      return res.status(403).json({ message: "Please verify your email before logging in." });
+    /* ---- Must verify email ---- */
+    if (!user.is_verified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in.",
+      });
+    }
 
-    /* ---------------------- Password check -------------------------- */
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid)
+    /* ---- Check password ---- */
+    const isValid = await bcrypt.compare(password, user.password_hash);
+
+    if (!isValid)
       return res.status(401).json({ message: "Invalid credentials" });
 
-    /* ---------------------- JWT token ------------------------------- */
+    /* ---- Generate JWT ---- */
     const token = jwt.sign(
       { user_id: user.user_id, role: user.role },
       process.env.JWT_SECRET,
@@ -137,21 +149,23 @@ export const loginUser = async (req, res) => {
   }
 };
 
-/* ---------------------- VERIFY EMAIL TOKEN ---------------------------- */
+/* ============================================================
+   VERIFY EMAIL
+   ============================================================ */
 export const verifyEmail = async (req, res) => {
   const { token } = req.params;
 
   try {
     const result = await pool.query(
-      `UPDATE users 
-       SET is_verified = true, verify_token = NULL 
+      `UPDATE users
+       SET is_verified = true, verify_token = NULL
        WHERE verify_token = $1
        RETURNING email`,
       [token]
     );
 
     if (result.rowCount === 0)
-      return res.status(400).json({ message: "Invalid or expired verification link" });
+      return res.status(400).json({ message: "Invalid or expired token" });
 
     res.json({
       message: `Email verified successfully: ${result.rows[0].email}`,
