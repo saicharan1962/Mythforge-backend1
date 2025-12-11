@@ -20,20 +20,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ------------------------------------
-// ✅ FIXED CORS FOR DEPLOYED FRONTEND
+// ✅ FIXED CORS (Correct Frontend URL!)
 // ------------------------------------
 app.use(
   cors({
     origin: [
-      "https://kind-cliff-0fa061e0f.2.azurestaticapps.net",  // correct Azure frontend
-      "http://localhost:3000",                               // local dev
+      "https://kind-cliff-0fa061e0f.3.azurestaticapps.net", // Correct frontend!
+      "http://localhost:3000", // Dev only
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
+// Body Parser
 app.use(express.json());
+
+// Static files (images)
 app.use("/images", express.static(path.join(__dirname, "public/images")));
 
 // ------------------------------------
@@ -49,12 +52,14 @@ app.get("/api/ping", (req, res) => {
   res.status(200).send("pong");
 });
 
-// Root route (confirm backend is running)
+// Root
 app.get("/", (req, res) => {
-  res.send("MythForge Backend Running Successfully");
+  res.send("MythForge Backend Running Successfully on Azure!");
 });
 
-// Start server
+// ------------------------------------
+// START SERVER
+// ------------------------------------
 app.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+  console.log(`🚀 Backend running on port ${PORT}`);
 });
